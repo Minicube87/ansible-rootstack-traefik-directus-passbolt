@@ -1,0 +1,24 @@
+---
+# hostname for target host
+HOSTNAME: example-host
+HOSTS_INI_TARGET: example
+
+# Reconfiguration patterns of '/etc/hosts'
+#
+# search for
+SEARCH_LINE: '^203\.0\.113\.10\s+.*$'
+# replace with
+REPLACE_LINE: "203.0.113.10       {{ HOSTNAME }}.example.com   {{ HOSTNAME }}"
+
+# path for Docker Compose project directories
+CONTAINER_ROOT: /opt/containers
+
+# Well known Reverse Proxy Network
+PROXY_NETWORK_NAME: proxy
+PROXY_NETWORK_CIDR: 172.30.0.0/16
+PROXY_NETWORK_GATEWAY: 172.30.0.1
+
+# admin user configuration
+ADMIN_USER_NAME: deploy
+ADMIN_USER_SSH_KEY: "${HOME}/.ssh/id_rsa.pub"
+ADMIN_USER_PASSWORD_HASH: "REPLACE_WITH_HASH"

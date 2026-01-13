@@ -1,0 +1,82 @@
+name: "directus-cms"
+
+networks:
+  stack:
+    internal: true
+  proxy:
+    external: true
+
+volumes:
+  postgresql:
+  redisdumps:
+
+services:
+  database:
+    container_name: ${_ID_}-database
+    hostname: ${_ID_}-datebase
+    image: postgis/postgis:${POSTGIS_IMAGE_VERSION}
+    restart: always
+    user: postgres:postgres
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+    networks:
+      - stack
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "--quiet" ]
+      start_period: 15s
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    container_name: ${_ID_}-redis
+    hostname: ${_ID_}-redis
+    image: redis:6
+    restart: always
+    volumes:
+      - redisdumps:/data
+    networks:
+      - stack
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping | grep PONG" ]
+      start_period: 15s
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  directus:
+    container_name: ${_ID_}-directus
+    hostname: ${_ID_}-directus
+    image: directus/directus:${DIRECTUS_IMAGE_VERSION}
+    restart: always
+    networks:
+      - stack
+      - proxy
+    healthcheck:
+      test:  [  "CMD-SHELL", "wget -O /dev/null --spider --tries=1 --quiet http://localhost:${DIRECTUS_PORT}/server/health 2&>1" ]
+      start_period: 15s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      redis:
+        condition: service_started
+      database:
+        condition: service_started
+    env_file:
+      - .env
+
+    labels:
+      - "traefik.enable=true"
+      #
+      - "traefik.http.routers.${_ID_}.entrypoints=websec"
+      - "traefik.http.routers.${_ID_}.rule=Host(`${FQDN}`)"
+      - "traefik.http.routers.${_ID_}.tls=true"
+      - "traefik.http.routers.${_ID_}.tls.certresolver=le-http-01"
+      - "traefik.http.routers.${_ID_}.service=${_ID_}"
+      #
+      - "traefik.http.services.${_ID_}.loadbalancer.server.port=${DIRECTUS_PORT}"

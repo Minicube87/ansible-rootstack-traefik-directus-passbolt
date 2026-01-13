@@ -1,0 +1,81 @@
+---
+services:
+  traefik:
+    image: traefik:${TRAEFIK_VERSION:-2.9}
+    container_name: ${_TS_}
+    restart: always
+    networks:
+      - proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # ---------------------------------------------------------------------
+      #   configuration (bind mount)
+      # ---------------------------------------------------------------------
+      - ./traefik.yml:/traefik.yaml:ro      # boot, init, static
+      - /etc/traefik/conf.d:/conf.d:ro      # runtime, dynamic
+
+      # ---------------------------------------------------------------------
+      #   certificate storage (bind mount)
+      # ---------------------------------------------------------------------
+      - /etc/traefik/acme.d:/acme.d:rw
+
+    labels:
+      - "traefik.enable=true"
+
+      # ---------------------------------------------------------------------
+      #   http -> https
+      # ---------------------------------------------------------------------
+      #   will be redirected globally via Traefik static configuration
+
+      # ---------------------------------------------------------------------
+      #   https
+      # ---------------------------------------------------------------------
+      - "traefik.http.routers.${_TS_}.entrypoints=websec"
+      - "traefik.http.routers.${_TS_}.rule=Host(`${FQDN}`)"
+
+      # ---------------------------------------------------------------------
+      #   certificate
+      # ---------------------------------------------------------------------
+      - "traefik.http.routers.${_TS_}.tls=true"
+      - "traefik.http.routers.${_TS_}.tls.certresolver=le-http-01"
+
+      # ---------------------------------------------------------------------
+      #   routing
+      # ---------------------------------------------------------------------
+      - "traefik.http.routers.${_TS_}.service=api@internal"
+
+      # ---------------------------------------------------------------------
+      #   middlewares
+      # ---------------------------------------------------------------------
+      - "traefik.http.routers.${_TS_}.middlewares=protected-auth@file,protected-ips@file"
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: ${_TS_}-dozzle
+    restart: always
+    volumes:
+      - /run/docker.sock:/var/run/docker.sock
+    networks:
+      - proxy
+    environment:
+      DOZZLE_BASE: /logs
+      DOZZLE_HOSTNAME: ${FQDN}
+      DOZZLE_NO_ANALYTICS: true
+    labels:
+      - "traefik.enable=true"
+      #
+      - "traefik.http.routers.${_TS_}-dozzle.entrypoints=websec"
+      - "traefik.http.routers.${_TS_}-dozzle.rule=Host(`${FQDN}`) && PathPrefix(`/logs`)"
+      - "traefik.http.routers.${_TS_}-dozzle.tls=true"
+      - "traefik.http.routers.${_TS_}-dozzle.service=${_TS_}-dozzle"
+      - "traefik.http.routers.${_TS_}-dozzle.middlewares=protected-auth@file,protected-ips@file"
+      #
+      - "traefik.http.services.${_TS_}-dozzle.loadbalancer.server.port=8080"
+
+networks:
+  proxy:
+    external: true

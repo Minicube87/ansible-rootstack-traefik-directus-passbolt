@@ -1,0 +1,62 @@
+---
+networks:
+  proxy:
+    external: true
+  stack:
+    driver: bridge
+    internal: true
+
+volumes:
+  database:
+  gpg_volume:
+  jwt_volume:
+
+services:
+  database:
+    image: mariadb:10.3
+    container_name: ${_ID_}-database
+    restart: always
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - database:/var/lib/mysql
+    networks:
+      - stack
+
+  passbolt:
+    image: passbolt/passbolt:latest-ce-non-root
+    container_name: ${_ID_}
+    restart: always
+    tty: true
+    depends_on:
+      - database
+    environment:
+      DATASOURCES_DEFAULT_HOST: database
+      DATASOURCES_DEFAULT_PORT: 3306
+      DATASOURCES_DEFAULT_DATABASE: ${MYSQL_DATABASE}
+      DATASOURCES_DEFAULT_USERNAME: ${MYSQL_USER}
+      DATASOURCES_DEFAULT_PASSWORD: ${MYSQL_PASSWORD}
+      EMAIL_TRANSPORT_DEFAULT_USERNAME: ${SES_SMTP_USER}
+      EMAIL_TRANSPORT_DEFAULT_PASSWORD: ${SES_SMTP_PASS}
+    env_file:
+      - .env.passbolt
+    volumes:
+      - gpg_volume:/etc/passbolt/gpg
+      - jwt_volume:/etc/passbolt/jwt
+    command: ["/usr/bin/wait-for.sh", "database:3306", "--", "/docker-entrypoint.sh"]
+    networks:
+      - proxy
+      - stack
+    labels:
+      - "traefik.enable=true"
+      #
+      - "traefik.http.routers.${_ID_}.entrypoints=websec"
+      - "traefik.http.routers.${_ID_}.rule=Host(`${FQDN}`)"
+      - "traefik.http.routers.${_ID_}.tls=true"
+      - "traefik.http.routers.${_ID_}.tls.certresolver=le-http-01"
+      - "traefik.http.routers.${_ID_}.service=${_ID_}"
+      #
+      - "traefik.http.services.${_ID_}.loadbalancer.server.port=8080"

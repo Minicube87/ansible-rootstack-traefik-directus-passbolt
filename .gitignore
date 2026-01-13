@@ -1,0 +1,7 @@
+.envrc
+.vscode
+.ansible_vault_password
+# alias of .ansible_vault_password
+.avp
+.DS_Store
+temp/

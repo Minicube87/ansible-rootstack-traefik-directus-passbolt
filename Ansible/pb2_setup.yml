@@ -1,0 +1,98 @@
+---
+- name: Install Fail2Ban and Docker
+  vars_files:
+    - config.yml
+
+  hosts: "{{ HOSTS_INI_TARGET }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: System catalog update and upgrade outdated
+      register: updatesys
+      apt:
+        name: "*"
+        state: latest
+        update_cache: yes
+
+    # If this prompt displays something else then '0 upgraded,
+    # 0 newly installed, 0 to remove and 0 not upgraded'
+    # then packages got upgraded.
+    - name: Display the last line of the previous task to check the stats
+      debug:
+        msg:  "{{updatesys.stdout_lines|last}}"
+
+    # Fail2Ban
+    - name: Install fail2ban package
+      apt:
+        name: fail2ban
+        state: present
+
+    # Docker
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+
+    - name: Create directory /etc/apt/keyrings
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Check if Docker GPG key file exists
+      stat:
+        path: /etc/apt/keyrings/docker.gpg
+      register: docker_gpg_stat
+
+    - name: Download Docker GPG key and convert to ASCII format
+      shell: >-
+        curl -fsSL https://download.docker.com/linux/debian/gpg
+        | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      when: docker_gpg_stat.stat.exists == false
+
+    - name: Change permissions for Docker GPG key
+      file:
+        path: /etc/apt/keyrings/docker.gpg
+        mode: '0644'
+
+    - name: Determine architecture
+      command: dpkg --print-architecture
+      register: architecture
+
+    - name: Determine Debian version codename
+      command: /bin/bash -c '. /etc/os-release && echo "$VERSION_CODENAME"'
+      register: debian_codename
+
+    - name: Add Docker apt repository
+      copy:
+        content: "deb [arch={{ architecture.stdout }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian {{ debian_codename.stdout }} stable"
+        dest: /etc/apt/sources.list.d/docker.list
+        mode: '0644'
+
+    - name: Install Docker engine packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    # Post Docker tasks
+    - name: Add user "{{ ADMIN_USER_NAME }}" to the docker group
+      user:
+        name: "{{ ADMIN_USER_NAME }}"
+        groups: docker
+        append: yes
+
+    - name: Create "{{ CONTAINER_ROOT }}" directory
+      file:
+        path: "{{ CONTAINER_ROOT }}"
+        state: directory
+        owner: "{{ ADMIN_USER_NAME }}"
+        group: "{{ ADMIN_USER_NAME }}"

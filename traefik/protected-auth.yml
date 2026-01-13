@@ -1,0 +1,9 @@
+http:
+  middlewares:
+    protected-auth:
+      basicAuth:
+        realm: "Restricted Access"
+        headerField: "X-WebAuth-User"
+        users:
+          # cspell: disable
+          - 'admin:$2y$05$examplehashreplacewithrealhash'

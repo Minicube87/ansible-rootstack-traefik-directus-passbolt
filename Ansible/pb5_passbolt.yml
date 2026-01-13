@@ -1,0 +1,39 @@
+---
+- name: Install Passbolt
+  vars:
+    PROJECT_NAME: passbolt
+  vars_files:
+    - config.yml
+
+  hosts: "{{ HOSTS_INI_TARGET }}"
+  remote_user: "{{ ADMIN_USER_NAME }}"
+  gather_facts: false
+
+  tasks:
+    - name: Create project directory
+      file:
+        path: "{{ CONTAINER_ROOT }}/{{ PROJECT_NAME }}"
+        state: directory
+
+    - name: Deploy Docker Compose file
+      copy:
+        src: "../{{ PROJECT_NAME }}/docker-compose.yml"
+        dest: "{{ CONTAINER_ROOT }}/{{ PROJECT_NAME }}/docker-compose.yml"
+
+    - name: Deploy Passbolt configuration
+      copy:
+        src: "../{{ PROJECT_NAME }}/.env.passbolt"
+        dest: "{{ CONTAINER_ROOT }}/{{ PROJECT_NAME }}/.env.passbolt"
+
+    - name: Deploy Docker Compose configuration
+      copy:
+        src: "../{{ PROJECT_NAME }}/.env.compose"
+        dest: "{{ CONTAINER_ROOT }}/{{ PROJECT_NAME }}/.env"
+        decrypt: true
+
+    - name: Start stack
+      command: >-
+        docker compose
+        -f "{{ CONTAINER_ROOT }}/{{ PROJECT_NAME }}/docker-compose.yml"
+        up -d
+        --force-recreate

@@ -1,0 +1,9 @@
+http:
+  middlewares:
+    protected-ips:
+      ipWhiteList:
+        sourceRange:
+          # Office example range
+          - "203.0.113.0/24"
+          # VPN example range
+          - "198.51.100.0/24"

@@ -1,0 +1,57 @@
+---
+#
+# Debian 11 minimal/netinstall comes without sudo. Before running the playbook
+# make sure to copy the ssh-key to the target systems root user.
+#
+# `ssh-copy-id root@mars.poprocket.com`
+#
+- name: Prepare Requirements
+  vars_files:
+    - config.yml
+
+  hosts: "{{ HOSTS_INI_TARGET }}"
+  gather_facts: false
+  #
+  # Later, the admin user would be 'toor', but this user doesn't exists yet.
+  # So, for the first tasks we use 'root'
+  #
+  remote_user: root
+  become: true
+  become_method: su
+
+  tasks:
+    - name: Change desired hostname
+      hostname:
+        name: "{{ HOSTNAME }}"
+
+    - name: Remove host default entry from hosting provider
+      lineinfile:
+        path: /etc/hosts
+        state: absent
+        regexp: "{{ SEARCH_LINE }}"
+
+    - name: Add correct host default entry
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ REPLACE_LINE }}"
+
+    - name: Install sudo package
+      apt:
+        name: sudo
+        state: present
+        update_cache: yes
+
+    - name: Create admin user "{{ ADMIN_USER_NAME }}"
+      user:
+        name: "{{ ADMIN_USER_NAME }}"
+        groups: sudo
+        append: yes
+        shell: /bin/bash
+        password: "{{ ADMIN_USER_PASSWORD_HASH }}"
+
+    - name: Deploy SSH public key for "{{ ADMIN_USER_NAME }}"
+      authorized_key:
+        user: "{{ ADMIN_USER_NAME }}"
+        key: "{{ lookup('file', \"{{ ADMIN_USER_SSH_KEY }}\") }}"
+
+

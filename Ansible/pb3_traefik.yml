@@ -1,0 +1,81 @@
+---
+- name: Install Traefik
+  vars:
+    PROJEKT_NAME: traefik
+  vars_files:
+    - config.yml
+
+  hosts: "{{ HOSTS_INI_TARGET }}"
+  remote_user: "{{ ADMIN_USER_NAME }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Create Reverse Proxy Docker network
+      docker_network:
+        name: "{{ PROXY_NETWORK_NAME }}"
+        state: present
+        ipam_config:
+          - subnet: "{{ PROXY_NETWORK_CIDR }}"
+            gateway: "{{ PROXY_NETWORK_GATEWAY }}"
+
+    - name: Create "/etc" entrypoint
+      file:
+        path: "/etc/{{ PROJEKT_NAME }}"
+        state: directory
+
+    - name: Create directory for dynamic configuration
+      file:
+        path: "/etc/{{ PROJEKT_NAME }}/conf.d"
+        state: directory
+
+    - name: Create directory for certificates storage
+      file:
+        path: "/etc/{{ PROJEKT_NAME }}/acme.d"
+        state: directory
+        mode: '0700'  # crts should be accessible by root only
+
+    - name: Create project directory
+      file:
+        path: "{{ CONTAINER_ROOT }}/{{ PROJEKT_NAME }}"
+        state: directory
+        owner: "{{ ADMIN_USER_NAME }}"
+        group: "{{ ADMIN_USER_NAME }}"
+
+    - name: Deploy Docker Compose file
+      copy:
+        src: "../{{ PROJEKT_NAME }}/docker-compose.yml"
+        dest: "{{ CONTAINER_ROOT }}/{{ PROJEKT_NAME }}/docker-compose.yml"
+
+    - name: Deploy Docker Compose configuration
+      copy:
+        src: "../{{ PROJEKT_NAME }}/.env.compose"
+        dest: "{{ CONTAINER_ROOT }}/{{ PROJEKT_NAME }}/.env"
+        owner: "{{ ADMIN_USER_NAME }}"
+        group: "{{ ADMIN_USER_NAME }}"
+
+    - name: Deploy Traefik static configuration
+      copy:
+        src: "../{{ PROJEKT_NAME }}/traefik.yml"
+        dest: "{{ CONTAINER_ROOT }}/{{ PROJEKT_NAME }}/traefik.yml"
+        owner: "{{ ADMIN_USER_NAME }}"
+        group: "{{ ADMIN_USER_NAME }}"
+
+    - name: Deploy Traefik Whitelist middleware
+      copy:
+        src: "../{{ PROJEKT_NAME }}/protected-ips.yml"
+        dest: "/etc/{{ PROJEKT_NAME }}/conf.d/protected-ips.yml"
+        mode: '0640'  # only editable by root
+
+    - name: Deploy Traefik BasicAuth middleware
+      copy:
+        src: "../{{ PROJEKT_NAME }}/protected-auth.yml"
+        dest: "/etc/{{ PROJEKT_NAME }}/conf.d/protected-auth.yml"
+        mode: '0640'  # only editable by root
+
+    - name: Start stack
+      command:  >-
+        docker compose
+        -f "{{ CONTAINER_ROOT }}/{{ PROJEKT_NAME }}/docker-compose.yml"
+        up -d
+        --force-recreate
