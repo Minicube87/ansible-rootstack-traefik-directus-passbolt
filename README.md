@@ -1,6 +1,6 @@
 # Project
 
-This is the project repository for the final project of the vocational training as an IT specialist for system integration by Jan Sulga, focusing on "Automated Setup of a Root Server Including Two Web Applications Using Ansible."
+This is the project repository for the final project of the vocational training as an IT specialist for system integration by Jan Sulga, focusing on "Automated Setup of a Root Server Including Two Web Applications Using Ansible." This final project was completed in 2024.
 
 This repository includes an Ansible folder with the corresponding Ansible playbooks, as well as project folders for each of the individual services.
 
