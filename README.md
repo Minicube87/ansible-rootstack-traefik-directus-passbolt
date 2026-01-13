@@ -11,6 +11,18 @@ This repository includes an Ansible folder with the corresponding Ansible playbo
 - Run Directus (Postgres + Redis) and Passbolt (MariaDB) behind the proxy using Docker Compose.
 - Use Ansible Vault for app-specific .env files; placeholders in this repo are safe for public sharing.
 
+## Prerequisites
+
+- Debian 11 (target host)
+- Ansible on the control machine
+- SSH access to the target host (key-based)
+- Ansible Vault password for decrypting app .env files
+
+## Secrets and configuration
+
+- Real credentials live in Ansible Vault-managed `.env` files.
+- Public repo contains placeholders; replace them before deploying.
+
 ## Stack
 
 - Ansible (provisioning)
